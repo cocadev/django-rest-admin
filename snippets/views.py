@@ -1,13 +1,12 @@
-from snippets.models import Snippet
-from snippets.serializers import SnippetSerializer, UserSerializer
-from rest_framework import generics
+from .models import Snippet
+from .serializers import SnippetSerializer, UserSerializer
+from rest_framework import generics, renderers, permissions, viewsets
 from django.contrib.auth.models import User
-from rest_framework import permissions
-from snippets.permissions import IsOwnerOrReadOnly
+from .permissions import IsOwnerOrReadOnly
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
-from rest_framework import renderers
+from rest_framework.decorators import action
 
 
 @api_view(['GET'])
@@ -18,36 +17,22 @@ def api_root(request, format=None):
     })
 
 
-class SnippetHighlight(generics.GenericAPIView):
+class SnippetViewSet(viewsets.ModelViewSet):
     queryset = Snippet.objects.all()
-    renderer_classes = [renderers.StaticHTMLRenderer]
+    serializer_class = SnippetSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly,
+                          IsOwnerOrReadOnly]
 
-    def get(self, request, *args, **kwargs):
+    @action(detail=True, renderer_classes=[renderers.StaticHTMLRenderer])
+    def highlight(self, request, *args, **kwargs):
         snippet = self.get_object()
         return Response(snippet.highlighted)
 
-
-class SnippetList(generics.ListCreateAPIView):
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
-    queryset = Snippet.objects.all()
-    serializer_class = SnippetSerializer
 
 
-class SnippetDetail(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
-    queryset = Snippet.objects.all()
-    serializer_class = SnippetSerializer
-
-
-class UserList(generics.ListAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-
-
-class UserDetail(generics.RetrieveAPIView):
+class UserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
